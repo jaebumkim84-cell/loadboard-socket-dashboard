@@ -396,6 +396,7 @@ let socketEditIdx = null;
 let loadboardEditIdx = null;
 let socketSortCol = -1, socketSortDir = 1;
 let loadboardSortCol = -1, loadboardSortDir = 1;
+let isAuthenticated = false;
 
 // ══════════════════════════════════════════════════════════
 //  INIT APP - LOAD CSV DATA
@@ -430,13 +431,28 @@ async function initApp(){
     document.getElementById('loading').innerHTML = `
       <div style="text-align:center;color:#e05c73">
         <div style="font-size:48px;margin-bottom:20px">⚠️</div>
-        <div style="font-size:16px;margin-bottom:10px">CSV 데이터 로드 실패</div>
-        <div style="font-size:13px;color:#8892a4">${err.message}</div>
-        <div style="font-size:12px;color:#8892a4;margin-top:20px">
-          socket.csv와 loadboard.csv 파일을 같은 폴더에 배치하거나,<br>
-          "CSV 업로드" 버튼을 사용하여 파일을 불러오세요.
+        <div style="font-size:16px;margin-bottom:10px">CSV 파일 자동 로드 실패</div>
+        <div style="font-size:13px;color:#8892a4;margin-bottom:20px">${err.message}</div>
+        <div style="background:var(--card2);padding:20px;border-radius:8px;max-width:600px;margin:0 auto 20px;text-align:left">
+          <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--accent)">📌 해결 방법:</div>
+          <div style="font-size:12px;line-height:1.8;color:var(--muted)">
+            <strong style="color:var(--text)">1. 웹 서버로 실행</strong> (추천)<br>
+            &nbsp;&nbsp;&nbsp;• Python: <code style="background:#1e2538;padding:2px 6px;border-radius:4px">python -m http.server 8000</code><br>
+            &nbsp;&nbsp;&nbsp;• Node.js: <code style="background:#1e2538;padding:2px 6px;border-radius:4px">npx http-server -p 8000</code><br><br>
+            <strong style="color:var(--text)">2. GitHub Pages 배포</strong><br>
+            &nbsp;&nbsp;&nbsp;• index.html, socket.csv, loadboard.csv 업로드<br>
+            &nbsp;&nbsp;&nbsp;• Settings → Pages에서 활성화<br><br>
+            <strong style="color:var(--text)">3. CSV 수동 업로드</strong><br>
+            &nbsp;&nbsp;&nbsp;• 아래 버튼으로 socket.csv와 loadboard.csv 업로드
+          </div>
         </div>
-        <button class="btn-primary" style="margin-top:20px" onclick="location.reload()">다시 시도</button>
+        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+          <label for="manual-socket-upload" class="btn-info" style="cursor:pointer">📂 Socket CSV 업로드</label>
+          <input type="file" id="manual-socket-upload" accept=".csv" style="display:none" onchange="manualUploadSocket(event)">
+          <label for="manual-loadboard-upload" class="btn-success" style="cursor:pointer">📂 Loadboard CSV 업로드</label>
+          <input type="file" id="manual-loadboard-upload" accept=".csv" style="display:none" onchange="manualUploadLoadboard(event)">
+          <button class="btn-primary" onclick="location.reload()">🔄 다시 시도</button>
+        </div>
       </div>
     `;
   }
@@ -580,6 +596,97 @@ function uploadLoadboardCSV(event){
 }
 
 // ══════════════════════════════════════════════════════════
+//  MANUAL UPLOAD (for error screen)
+// ══════════════════════════════════════════════════════════
+function manualUploadSocket(event){
+  const file = event.target.files[0];
+  if(!file) return;
+  
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try {
+      const text = e.target.result;
+      const parsed = parseCSV(text);
+      
+      socketData = parsed.map(r=>({
+        SN: r.SN || '',
+        TESTER: r.TESTER || '',
+        PKG_TYPE: r.PKG_TYPE || '',
+        Body_Size: r.Body_Size || '',
+        socket_qty: parseInt(r['소켓수량']) || 0,
+        cover_qty: parseInt(r['커버수량']) || 0,
+        location: r['위치'] || '',
+        engineer: r['제작Engr'] || '',
+        socket_no: r.SOCKET_NO || '',
+        pogo_pin: r.Pogo_Pin || '',
+        comment: r.Comment || ''
+      }));
+      
+      socketFiltered = [...socketData];
+      localStorage.setItem('lb_socket', JSON.stringify(socketData));
+      
+      showToast('✅ Socket CSV 업로드 완료 - Loadboard CSV도 업로드하세요');
+      
+      // Check if both are loaded
+      if(loadboardData.length > 0){
+        document.getElementById('loading').style.display = 'none';
+        buildKPI();
+        buildCharts();
+        initFilters();
+        renderProductList();
+      }
+    } catch(err){
+      showToast('❌ Socket CSV 형식 오류: ' + err.message);
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+function manualUploadLoadboard(event){
+  const file = event.target.files[0];
+  if(!file) return;
+  
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try {
+      const text = e.target.result;
+      const parsed = parseCSV(text);
+      
+      loadboardData = parsed.map(r=>({
+        Tester: r.Tester || '',
+        도킹유형: r['도킹유형'] || '',
+        보드번호: r['보드번호_SN'] || r['보드번호'] || '',
+        PKG_Type: r.PKG_Type || '',
+        body_Size: r.body_Size || '',
+        양산_FT: r['양산_FT'] || '',
+        보드제작처: r['보드제작처'] || '',
+        Socket제작처: r['Socket제작처'] || '',
+        제품명: r['제품명'] || '',
+        자작FT가능: r['자작FT가능'] || '',
+        Comment: r.Comment || ''
+      }));
+      
+      loadboardFiltered = [...loadboardData];
+      localStorage.setItem('lb_loadboard', JSON.stringify(loadboardData));
+      
+      showToast('✅ Loadboard CSV 업로드 완료 - Socket CSV도 업로드하세요');
+      
+      // Check if both are loaded
+      if(socketData.length > 0){
+        document.getElementById('loading').style.display = 'none';
+        buildKPI();
+        buildCharts();
+        initFilters();
+        renderProductList();
+      }
+    } catch(err){
+      showToast('❌ Loadboard CSV 형식 오류: ' + err.message);
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+// ══════════════════════════════════════════════════════════
 //  CSV DOWNLOAD HANDLERS
 // ══════════════════════════════════════════════════════════
 function downloadSocketCSV(){
@@ -661,6 +768,17 @@ setInterval(updateClock,1000); updateClock();
 //  TAB SWITCHING
 // ══════════════════════════════════════════════════════════
 function switchTab(tab){
+  // Check authentication for protected tabs
+  if((tab==='socket' || tab==='loadboard') && !isAuthenticated){
+    const password = prompt('🔒 이 페이지는 비밀번호가 필요합니다:\n\n비밀번호를 입력하세요:');
+    if(password !== 'abovtest'){
+      showToast('❌ 비밀번호가 올바르지 않습니다');
+      return;
+    }
+    isAuthenticated = true;
+    showToast('✅ 인증 성공');
+  }
+  
   ['dashboard','socket','loadboard'].forEach(t=>{
     const el = document.getElementById('content-'+t);
     if(el) el.style.display = t===tab?'block':'none';
@@ -680,13 +798,15 @@ function buildKPI(){
   const pkgTypes = new Set(socketData.map(r=>r.PKG_TYPE.trim()).filter(Boolean)).size;
   const testers = new Set(socketData.map(r=>r.TESTER).filter(Boolean)).size;
   const totalBoards = loadboardData.length;
+  const totalProducts = new Set(loadboardData.map(r=>r.제품명.trim()).filter(Boolean)).size;
   const kpis = [
     {val:socketData.length,lbl:'총 소켓 항목',color:'var(--accent)'},
     {val:totalSockets,     lbl:'소켓 총 수량',color:'var(--accent2)'},
     {val:pkgTypes,         lbl:'PKG 유형 수',color:'var(--accent3)'},
     {val:testers,          lbl:'TESTER 수',  color:'var(--purple)'},
     {val:totalBoards,      lbl:'Loadboard 수',color:'var(--cyan)'},
-    {val:new Set(loadboardData.map(r=>r.양산_FT).filter(Boolean)).size, lbl:'FT 유형 수', color:'var(--accent4)'},
+    {val:totalProducts,    lbl:'총 제품 수',  color:'var(--accent4)'},
+    {val:new Set(loadboardData.map(r=>r.양산_FT).filter(Boolean)).size, lbl:'FT 유형 수', color:'#ff9f40'},
   ];
   const row = document.getElementById('kpi-row');
   row.innerHTML = kpis.map(k=>`

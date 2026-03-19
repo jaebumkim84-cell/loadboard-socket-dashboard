@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>LB &amp; Socket,Load Board 관리 대시보드</title>
+<title>LB & Socket 관리 대시보드</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 /* ══════════════ BASE ══════════════ */
@@ -46,6 +46,18 @@ button:hover{opacity:.85}
 .chart-card h3{font-size:12px;font-weight:600;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px}
 .chart-card canvas{max-height:220px}
 
+/* ══════════════ PRODUCT LIST ══════════════ */
+.product-section{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;margin-top:16px}
+.product-section h3{font-size:14px;font-weight:700;margin-bottom:12px;color:var(--text)}
+.product-search{display:flex;gap:8px;margin-bottom:12px}
+.product-search input{flex:1;max-width:400px}
+.product-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;max-height:400px;overflow-y:auto}
+.product-card{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:12px;cursor:pointer;transition:all .2s}
+.product-card:hover{border-color:var(--accent);transform:translateY(-2px)}
+.product-card .product-name{font-size:13px;font-weight:700;color:var(--accent);margin-bottom:6px}
+.product-card .product-info{font-size:11px;color:var(--muted);line-height:1.6}
+.product-card .product-info span{display:block}
+
 /* ══════════════ FILTER BAR ══════════════ */
 .filter-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:12px}
 .filter-bar label{font-size:11px;color:var(--muted)}
@@ -55,6 +67,7 @@ button:hover{opacity:.85}
 .btn-warning{background:var(--accent3);color:#0f1117;font-weight:700}
 .btn-danger{background:var(--accent4);color:#fff}
 .btn-muted{background:var(--card2);color:var(--text)}
+.btn-info{background:var(--cyan);color:#0f1117;font-weight:700}
 
 /* ══════════════ TABLE ══════════════ */
 .tbl-wrap{overflow:auto;border-radius:10px;border:1px solid var(--border)}
@@ -91,17 +104,28 @@ tbody td input:focus,tbody td select:focus{background:var(--card2);border-color:
 #toast{position:fixed;bottom:24px;right:24px;background:#232736;border:1px solid var(--accent2);color:var(--accent2);border-radius:8px;padding:10px 18px;font-size:13px;z-index:200;opacity:0;transition:opacity .3s;pointer-events:none}
 #toast.show{opacity:1}
 
-/* ══════════════ EXPORT BTNS ══════════════ */
-.export-bar{display:flex;gap:8px;margin-bottom:10px}
+/* ══════════════ FILE UPLOAD ══════════════ */
+.file-upload{display:flex;gap:8px;align-items:center}
+.file-upload input[type=file]{display:none}
+.file-upload label{cursor:pointer}
+
+/* ══════════════ LOADING ══════════════ */
+.loading{position:fixed;inset:0;background:rgba(15,17,23,0.95);display:flex;align-items:center;justify-content:center;z-index:300;font-size:18px;color:var(--accent);flex-direction:column;gap:20px}
+.loading-spinner{width:50px;height:50px;border:4px solid var(--border);border-top:4px solid var(--accent);border-radius:50%;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
+<div id="loading" class="loading" style="display:none">
+  <div class="loading-spinner"></div>
+  <div>📂 CSV 데이터를 불러오는 중...</div>
+</div>
 
 <div id="app">
 
 <!-- ── TOPBAR ─────────────────────────────────────────── -->
 <div class="topbar">
-  <h1>🔌 LB &amp; <span>Socket</span> 관리 대시보드</h1>
+  <h1>🔌 LB & <span>Socket</span> 관리 대시보드</h1>
   <div id="clock"></div>
 </div>
 
@@ -109,7 +133,7 @@ tbody td input:focus,tbody td select:focus{background:var(--card2);border-color:
 <div class="tabs">
   <div class="tab active" onclick="switchTab('dashboard')">📊 대시보드</div>
   <div class="tab" onclick="switchTab('socket')">🔧 SOCKET 관리</div>
-  <div class="tab" onclick="switchTab('data')">📋 L/Board 관리</div>
+  <div class="tab" onclick="switchTab('loadboard')">📋 Loadboard 관리</div>
 </div>
 
 <!-- ── CONTENT ────────────────────────────────────────── -->
@@ -123,15 +147,31 @@ tbody td input:focus,tbody td select:focus{background:var(--card2);border-color:
     <div class="chart-card"><h3>PKG TYPE 수량 (SOCKET)</h3><canvas id="ch-pkg"></canvas></div>
     <div class="chart-card"><h3>TESTER별 소켓 분포</h3><canvas id="ch-tester"></canvas></div>
     <div class="chart-card"><h3>Body Size TOP 10 (SOCKET)</h3><canvas id="ch-body"></canvas></div>
-    <div class="chart-card"><h3>Data – 도킹유형</h3><canvas id="ch-docking"></canvas></div>
-    <div class="chart-card"><h3>Data – 양산 FT</h3><canvas id="ch-ft"></canvas></div>
-    <div class="chart-card"><h3>Data – 보드 제작처</h3><canvas id="ch-maker"></canvas></div>
+    <div class="chart-card"><h3>Loadboard – 도킹유형</h3><canvas id="ch-docking"></canvas></div>
+    <div class="chart-card"><h3>Loadboard – 양산 FT</h3><canvas id="ch-ft"></canvas></div>
+    <div class="chart-card"><h3>Loadboard – 보드 제작처</h3><canvas id="ch-maker"></canvas></div>
+  </div>
+
+  <!-- PRODUCT LIST -->
+  <div class="product-section">
+    <h3>📦 제품별 보드 정보</h3>
+    <div class="product-search">
+      <input type="text" id="product-search" placeholder="제품명으로 검색..." oninput="searchProducts()">
+      <button class="btn-muted" onclick="clearProductSearch()">초기화</button>
+    </div>
+    <div class="product-list" id="product-list"></div>
   </div>
 </div>
 
 <div class="content" id="content-socket" style="display:none">
   <!-- Filter -->
   <div class="filter-bar">
+    <label>CSV 불러오기</label>
+    <div class="file-upload">
+      <input type="file" id="socket-csv-upload" accept=".csv" onchange="uploadSocketCSV(event)">
+      <label for="socket-csv-upload" class="btn-info">📂 CSV 업로드</label>
+    </div>
+    <div style="flex:1"></div>
     <label>TESTER</label>
     <select id="sf-tester"><option value="">전체</option></select>
     <label>PKG계열</label>
@@ -140,10 +180,11 @@ tbody td input:focus,tbody td select:focus{background:var(--card2);border-color:
     <input type="text" id="sf-search" placeholder="PKG / Body Size / Socket No…">
     <button class="btn-primary" onclick="applySocketFilter()">🔍 필터</button>
     <button class="btn-muted" onclick="clearSocketFilter()">초기화</button>
-    <div style="flex:1"></div>
+  </div>
+  <div class="filter-bar">
     <button class="btn-success" onclick="openAddSocketModal()">＋ 행 추가</button>
-    <button class="btn-warning" onclick="exportCSV('socket')">⬇ CSV</button>
-    <button class="btn-primary" onclick="saveToLocalStorage()">💾 저장</button>
+    <button class="btn-warning" onclick="downloadSocketCSV()">⬇ CSV 다운로드</button>
+    <button class="btn-danger" onclick="resetSocketData()">🔄 초기 데이터로 복원</button>
   </div>
   <div class="tbl-wrap">
     <table id="socket-table">
@@ -169,48 +210,55 @@ tbody td input:focus,tbody td select:focus{background:var(--card2);border-color:
   <div id="socket-count" style="color:var(--muted);font-size:11px;margin-top:8px"></div>
 </div>
 
-<div class="content" id="content-data" style="display:none">
+<div class="content" id="content-loadboard" style="display:none">
   <!-- Filter -->
   <div class="filter-bar">
-    <label>Tester</label>
-    <select id="df-tester"><option value="">전체</option></select>
-    <label>도킹유형</label>
-    <select id="df-docking"><option value="">전체</option></select>
-    <label>양산FT</label>
-    <select id="df-ft"><option value="">전체</option></select>
-    <label>보드제작처</label>
-    <select id="df-maker"><option value="">전체</option></select>
-    <label>검색</label>
-    <input type="text" id="df-search" placeholder="제품명 / PKG / 보드번호…">
-    <button class="btn-primary" onclick="applyDataFilter()">🔍 필터</button>
-    <button class="btn-muted" onclick="clearDataFilter()">초기화</button>
+    <label>CSV 불러오기</label>
+    <div class="file-upload">
+      <input type="file" id="loadboard-csv-upload" accept=".csv" onchange="uploadLoadboardCSV(event)">
+      <label for="loadboard-csv-upload" class="btn-info">📂 CSV 업로드</label>
+    </div>
     <div style="flex:1"></div>
-    <button class="btn-success" onclick="openAddDataModal()">＋ 행 추가</button>
-    <button class="btn-warning" onclick="exportCSV('data')">⬇ CSV</button>
-    <button class="btn-primary" onclick="saveToLocalStorage()">💾 저장</button>
+    <label>Tester</label>
+    <select id="lf-tester"><option value="">전체</option></select>
+    <label>도킹유형</label>
+    <select id="lf-docking"><option value="">전체</option></select>
+    <label>양산FT</label>
+    <select id="lf-ft"><option value="">전체</option></select>
+    <label>보드제작처</label>
+    <select id="lf-maker"><option value="">전체</option></select>
+    <label>검색</label>
+    <input type="text" id="lf-search" placeholder="제품명 / PKG / 보드번호…">
+    <button class="btn-primary" onclick="applyLoadboardFilter()">🔍 필터</button>
+    <button class="btn-muted" onclick="clearLoadboardFilter()">초기화</button>
+  </div>
+  <div class="filter-bar">
+    <button class="btn-success" onclick="openAddLoadboardModal()">＋ 행 추가</button>
+    <button class="btn-warning" onclick="downloadLoadboardCSV()">⬇ CSV 다운로드</button>
+    <button class="btn-danger" onclick="resetLoadboardData()">🔄 초기 데이터로 복원</button>
   </div>
   <div class="tbl-wrap">
-    <table id="data-table">
+    <table id="loadboard-table">
       <thead>
         <tr>
-          <th onclick="sortTable('data',0)">Tester<span class="sort-icon">↕</span></th>
-          <th onclick="sortTable('data',1)">도킹유형<span class="sort-icon">↕</span></th>
-          <th onclick="sortTable('data',2)">보드번호<span class="sort-icon">↕</span></th>
-          <th onclick="sortTable('data',3)">PKG Type<span class="sort-icon">↕</span></th>
-          <th onclick="sortTable('data',4)">Body Size<span class="sort-icon">↕</span></th>
-          <th onclick="sortTable('data',5)">양산 FT<span class="sort-icon">↕</span></th>
-          <th onclick="sortTable('data',6)">보드 제작처<span class="sort-icon">↕</span></th>
-          <th onclick="sortTable('data',7)">Socket 제작처<span class="sort-icon">↕</span></th>
-          <th onclick="sortTable('data',8)">제품명<span class="sort-icon">↕</span></th>
+          <th onclick="sortTable('loadboard',0)">Tester<span class="sort-icon">↕</span></th>
+          <th onclick="sortTable('loadboard',1)">도킹유형<span class="sort-icon">↕</span></th>
+          <th onclick="sortTable('loadboard',2)">보드번호<span class="sort-icon">↕</span></th>
+          <th onclick="sortTable('loadboard',3)">PKG Type<span class="sort-icon">↕</span></th>
+          <th onclick="sortTable('loadboard',4)">Body Size<span class="sort-icon">↕</span></th>
+          <th onclick="sortTable('loadboard',5)">양산 FT<span class="sort-icon">↕</span></th>
+          <th onclick="sortTable('loadboard',6)">보드 제작처<span class="sort-icon">↕</span></th>
+          <th onclick="sortTable('loadboard',7)">Socket 제작처<span class="sort-icon">↕</span></th>
+          <th onclick="sortTable('loadboard',8)">제품명<span class="sort-icon">↕</span></th>
           <th>자작FT</th>
           <th>Comment</th>
           <th>작업</th>
         </tr>
       </thead>
-      <tbody id="data-tbody"></tbody>
+      <tbody id="loadboard-tbody"></tbody>
     </table>
   </div>
-  <div id="data-count" style="color:var(--muted);font-size:11px;margin-top:8px"></div>
+  <div id="loadboard-count" style="color:var(--muted);font-size:11px;margin-top:8px"></div>
 </div>
 </div>
 
@@ -238,57 +286,473 @@ tbody td input:focus,tbody td select:focus{background:var(--card2);border-color:
 </div>
 </div>
 
-<!-- ── DATA ADD/EDIT MODAL ─────────────────────────── -->
-<div class="modal-overlay" id="data-modal">
+<!-- ── LOADBOARD ADD/EDIT MODAL ─────────────────────────── -->
+<div class="modal-overlay" id="loadboard-modal">
 <div class="modal">
-  <h2 id="data-modal-title">Data 데이터 추가</h2>
+  <h2 id="loadboard-modal-title">Loadboard 데이터 추가</h2>
   <div class="form-grid">
     <div class="form-group"><label>Tester</label>
-      <select id="dm-tester"><option>3380D</option><option>3360D</option><option>3380&amp;3360D</option></select></div>
+      <select id="lm-tester"><option>3380D</option><option>3360D</option><option>3380&3360D</option></select></div>
     <div class="form-group"><label>도킹유형</label>
-      <select id="dm-docking"><option>Flat Cable</option><option>Direct Duking</option></select></div>
-    <div class="form-group"><label>보드번호(SN)</label><input id="dm-sn" type="text"></div>
-    <div class="form-group"><label>PKG Type</label><input id="dm-pkg" type="text"></div>
-    <div class="form-group"><label>Body Size</label><input id="dm-body" type="text"></div>
+      <select id="lm-docking"><option>Flat Cable</option><option>Direct Duking</option></select></div>
+    <div class="form-group"><label>보드번호</label><input id="lm-sn" type="text"></div>
+    <div class="form-group"><label>PKG Type</label><input id="lm-pkg" type="text"></div>
+    <div class="form-group"><label>Body Size</label><input id="lm-body" type="text"></div>
     <div class="form-group"><label>양산 FT</label>
-      <select id="dm-ft"><option value=""></option><option>WINPAC</option><option>FBHS</option><option>GMTEST</option></select></div>
+      <select id="lm-ft"><option value=""></option><option>WINPAC</option><option>FBHS</option><option>GMTEST</option></select></div>
     <div class="form-group"><label>보드 제작처</label>
-      <select id="dm-maker"><option value=""></option><option>디엔텍</option><option>FBHS</option></select></div>
+      <select id="lm-maker"><option value=""></option><option>디엔텍</option><option>FBHS</option></select></div>
     <div class="form-group"><label>Socket 제작처</label>
-      <select id="dm-socket-maker"><option value=""></option><option>WINPAC</option><option>FBHS</option><option>GMTEST</option><option>Manual</option></select></div>
-    <div class="form-group" style="grid-column:span 2"><label>제품명</label><input id="dm-product" type="text"></div>
+      <select id="lm-socket-maker"><option value=""></option><option>WINPAC</option><option>FBHS</option><option>GMTEST</option><option>Manual</option></select></div>
+    <div class="form-group" style="grid-column:span 2"><label>제품명</label><input id="lm-product" type="text"></div>
     <div class="form-group"><label>자작FT가능</label>
-      <select id="dm-self"><option value="O">O</option><option value="X">X</option><option value=""></option></select></div>
-    <div class="form-group"><label>PCB Ver</label><input id="dm-pcbver" type="text"></div>
-    <div class="form-group" style="grid-column:span 2"><label>Comment</label><textarea id="dm-comment"></textarea></div>
+      <select id="lm-self"><option value="O">O</option><option value="X">X</option><option value=""></option></select></div>
+    <div class="form-group"><label>Comment</label><input id="lm-comment" type="text"></div>
   </div>
   <div class="form-actions">
-    <button class="btn-muted" onclick="closeModal('data-modal')">취소</button>
-    <button class="btn-success" onclick="saveDataModal()">저장</button>
+    <button class="btn-muted" onclick="closeModal('loadboard-modal')">취소</button>
+    <button class="btn-success" onclick="saveLoadboardModal()">저장</button>
   </div>
 </div>
 </div>
 
 <div id="toast">✅ 저장되었습니다</div>
 
-<!-- 데이터 파일 로드 -->
-<script src="socket-data.js"></script>
-<script src="loadboard-data.js"></script>
-
 <script>
 // ══════════════════════════════════════════════════════════
-//  DATA
+//  CSV PARSING FUNCTIONS
 // ══════════════════════════════════════════════════════════
-// 로컬 스토리지에 저장된 데이터가 있으면 그것을 사용, 없으면 초기 데이터 사용
-let socketData = JSON.parse(localStorage.getItem('lb_socket') || 'null') || JSON.parse(JSON.stringify(SOCKET_DATA));
-let dataData   = JSON.parse(localStorage.getItem('lb_data')   || 'null') || JSON.parse(JSON.stringify(LOADBOARD_DATA));
+function parseCSV(text){
+  const lines = text.split('\n').filter(l=>l.trim());
+  if(lines.length===0) return [];
+  
+  const headers = parseCSVLine(lines[0]);
+  const rows = [];
+  
+  for(let i=1; i<lines.length; i++){
+    const values = parseCSVLine(lines[i]);
+    if(values.length === 0) continue;
+    const obj = {};
+    headers.forEach((h,idx)=>{
+      obj[h] = values[idx] || '';
+    });
+    rows.push(obj);
+  }
+  return rows;
+}
 
+function parseCSVLine(line){
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  
+  for(let i=0; i<line.length; i++){
+    const char = line[i];
+    const nextChar = line[i+1];
+    
+    if(char === '"'){
+      if(inQuotes && nextChar === '"'){
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if(char === ',' && !inQuotes){
+      result.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  result.push(current);
+  return result;
+}
+
+function toCSV(data, headers){
+  const escape = (val) => {
+    val = String(val || '');
+    if(val.includes(',') || val.includes('"') || val.includes('\n')){
+      return '"' + val.replace(/"/g, '""') + '"';
+    }
+    return val;
+  };
+  
+  const headerLine = headers.map(escape).join(',');
+  const dataLines = data.map(row => 
+    headers.map(h => escape(row[h])).join(',')
+  );
+  
+  return '\uFEFF' + headerLine + '\n' + dataLines.join('\n');
+}
+
+// ══════════════════════════════════════════════════════════
+//  DATA STORAGE
+// ══════════════════════════════════════════════════════════
+let socketData = [];
+let loadboardData = [];
 let socketFiltered = [];
-let dataFiltered   = [];
-let socketEditIdx  = null;
-let dataEditIdx    = null;
-let socketSortCol  = -1, socketSortDir = 1;
-let dataSortCol    = -1, dataSortDir   = 1;
+let loadboardFiltered = [];
+let socketEditIdx = null;
+let loadboardEditIdx = null;
+let socketSortCol = -1, socketSortDir = 1;
+let loadboardSortCol = -1, loadboardSortDir = 1;
+let isAuthenticated = false;
+
+// ══════════════════════════════════════════════════════════
+//  INIT APP - LOAD CSV DATA
+// ══════════════════════════════════════════════════════════
+async function initApp(){
+  try {
+    document.getElementById('loading').style.display = 'flex';
+    
+    // Try to load from localStorage first
+    const storedSocket = localStorage.getItem('lb_socket');
+    const storedLoadboard = localStorage.getItem('lb_loadboard');
+    
+    if(storedSocket && storedLoadboard){
+      socketData = JSON.parse(storedSocket);
+      loadboardData = JSON.parse(storedLoadboard);
+    } else {
+      // Load from CSV files
+      await loadCSVFiles();
+    }
+    
+    socketFiltered = [...socketData];
+    loadboardFiltered = [...loadboardData];
+    
+    document.getElementById('loading').style.display = 'none';
+    
+    buildKPI();
+    buildCharts();
+    initFilters();
+    renderProductList();
+    
+  } catch(err){
+    document.getElementById('loading').innerHTML = `
+      <div style="text-align:center;color:#e05c73">
+        <div style="font-size:48px;margin-bottom:20px">⚠️</div>
+        <div style="font-size:16px;margin-bottom:10px">CSV 파일 자동 로드 실패</div>
+        <div style="font-size:13px;color:#8892a4;margin-bottom:20px">${err.message}</div>
+        <div style="background:var(--card2);padding:20px;border-radius:8px;max-width:600px;margin:0 auto 20px;text-align:left">
+          <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--accent)">📌 해결 방법:</div>
+          <div style="font-size:12px;line-height:1.8;color:var(--muted)">
+            <strong style="color:var(--text)">1. 웹 서버로 실행</strong> (추천)<br>
+            &nbsp;&nbsp;&nbsp;• Python: <code style="background:#1e2538;padding:2px 6px;border-radius:4px">python -m http.server 8000</code><br>
+            &nbsp;&nbsp;&nbsp;• Node.js: <code style="background:#1e2538;padding:2px 6px;border-radius:4px">npx http-server -p 8000</code><br><br>
+            <strong style="color:var(--text)">2. GitHub Pages 배포</strong><br>
+            &nbsp;&nbsp;&nbsp;• index.html, socket.csv, loadboard.csv 업로드<br>
+            &nbsp;&nbsp;&nbsp;• Settings → Pages에서 활성화<br><br>
+            <strong style="color:var(--text)">3. CSV 수동 업로드</strong><br>
+            &nbsp;&nbsp;&nbsp;• 아래 버튼으로 socket.csv와 loadboard.csv 업로드
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+          <label for="manual-socket-upload" class="btn-info" style="cursor:pointer">📂 Socket CSV 업로드</label>
+          <input type="file" id="manual-socket-upload" accept=".csv" style="display:none" onchange="manualUploadSocket(event)">
+          <label for="manual-loadboard-upload" class="btn-success" style="cursor:pointer">📂 Loadboard CSV 업로드</label>
+          <input type="file" id="manual-loadboard-upload" accept=".csv" style="display:none" onchange="manualUploadLoadboard(event)">
+          <button class="btn-primary" onclick="location.reload()">🔄 다시 시도</button>
+        </div>
+      </div>
+    `;
+  }
+}
+
+async function loadCSVFiles(){
+  const [socketRes, loadboardRes] = await Promise.all([
+    fetch('socket.csv'),
+    fetch('loadboard.csv')
+  ]);
+  
+  if(!socketRes.ok || !loadboardRes.ok){
+    throw new Error('CSV 파일을 찾을 수 없습니다. socket.csv와 loadboard.csv 파일이 같은 폴더에 있는지 확인하세요.');
+  }
+  
+  const socketText = await socketRes.text();
+  const loadboardText = await loadboardRes.text();
+  
+  const socketParsed = parseCSV(socketText);
+  const loadboardParsed = parseCSV(loadboardText);
+  
+  // Map socket data
+  socketData = socketParsed.map(r=>({
+    SN: r.SN || '',
+    TESTER: r.TESTER || '',
+    PKG_TYPE: r.PKG_TYPE || '',
+    Body_Size: r.Body_Size || '',
+    socket_qty: parseInt(r['소켓수량']) || 0,
+    cover_qty: parseInt(r['커버수량']) || 0,
+    location: r['위치'] || '',
+    engineer: r['제작Engr'] || '',
+    socket_no: r.SOCKET_NO || '',
+    pogo_pin: r.Pogo_Pin || '',
+    comment: r.Comment || ''
+  }));
+  
+  // Map loadboard data
+  loadboardData = loadboardParsed.map(r=>({
+    Tester: r.Tester || '',
+    도킹유형: r['도킹유형'] || '',
+    보드번호: r['보드번호_SN'] || r['보드번호'] || '',
+    PKG_Type: r.PKG_Type || '',
+    body_Size: r.body_Size || '',
+    양산_FT: r['양산_FT'] || '',
+    보드제작처: r['보드제작처'] || '',
+    Socket제작처: r['Socket제작처'] || '',
+    제품명: r['제품명'] || '',
+    자작FT가능: r['자작FT가능'] || '',
+    Comment: r.Comment || ''
+  }));
+  
+  // Save to localStorage as backup
+  localStorage.setItem('lb_socket', JSON.stringify(socketData));
+  localStorage.setItem('lb_loadboard', JSON.stringify(loadboardData));
+}
+
+// ══════════════════════════════════════════════════════════
+//  CSV UPLOAD HANDLERS
+// ══════════════════════════════════════════════════════════
+function uploadSocketCSV(event){
+  const file = event.target.files[0];
+  if(!file) return;
+  
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try {
+      const text = e.target.result;
+      const parsed = parseCSV(text);
+      
+      socketData = parsed.map(r=>({
+        SN: r.SN || '',
+        TESTER: r.TESTER || '',
+        PKG_TYPE: r.PKG_TYPE || '',
+        Body_Size: r.Body_Size || '',
+        socket_qty: parseInt(r['소켓수량']) || 0,
+        cover_qty: parseInt(r['커버수량']) || 0,
+        location: r['위치'] || '',
+        engineer: r['제작Engr'] || '',
+        socket_no: r.SOCKET_NO || '',
+        pogo_pin: r.Pogo_Pin || '',
+        comment: r.Comment || ''
+      }));
+      
+      socketFiltered = [...socketData];
+      localStorage.setItem('lb_socket', JSON.stringify(socketData));
+      
+      renderSocketTable();
+      buildKPI();
+      buildCharts();
+      initFilters();
+      
+      showToast('✅ Socket CSV 업로드 완료');
+      event.target.value = '';
+    } catch(err){
+      showToast('❌ CSV 파일 형식 오류: ' + err.message);
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+function uploadLoadboardCSV(event){
+  const file = event.target.files[0];
+  if(!file) return;
+  
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try {
+      const text = e.target.result;
+      const parsed = parseCSV(text);
+      
+      loadboardData = parsed.map(r=>({
+        Tester: r.Tester || '',
+        도킹유형: r['도킹유형'] || '',
+        보드번호: r['보드번호_SN'] || r['보드번호'] || '',
+        PKG_Type: r.PKG_Type || '',
+        body_Size: r.body_Size || '',
+        양산_FT: r['양산_FT'] || '',
+        보드제작처: r['보드제작처'] || '',
+        Socket제작처: r['Socket제작처'] || '',
+        제품명: r['제품명'] || '',
+        자작FT가능: r['자작FT가능'] || '',
+        Comment: r.Comment || ''
+      }));
+      
+      loadboardFiltered = [...loadboardData];
+      localStorage.setItem('lb_loadboard', JSON.stringify(loadboardData));
+      
+      renderLoadboardTable();
+      buildKPI();
+      buildCharts();
+      initFilters();
+      renderProductList();
+      
+      showToast('✅ Loadboard CSV 업로드 완료');
+      event.target.value = '';
+    } catch(err){
+      showToast('❌ CSV 파일 형식 오류: ' + err.message);
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+// ══════════════════════════════════════════════════════════
+//  MANUAL UPLOAD (for error screen)
+// ══════════════════════════════════════════════════════════
+function manualUploadSocket(event){
+  const file = event.target.files[0];
+  if(!file) return;
+  
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try {
+      const text = e.target.result;
+      const parsed = parseCSV(text);
+      
+      socketData = parsed.map(r=>({
+        SN: r.SN || '',
+        TESTER: r.TESTER || '',
+        PKG_TYPE: r.PKG_TYPE || '',
+        Body_Size: r.Body_Size || '',
+        socket_qty: parseInt(r['소켓수량']) || 0,
+        cover_qty: parseInt(r['커버수량']) || 0,
+        location: r['위치'] || '',
+        engineer: r['제작Engr'] || '',
+        socket_no: r.SOCKET_NO || '',
+        pogo_pin: r.Pogo_Pin || '',
+        comment: r.Comment || ''
+      }));
+      
+      socketFiltered = [...socketData];
+      localStorage.setItem('lb_socket', JSON.stringify(socketData));
+      
+      showToast('✅ Socket CSV 업로드 완료 - Loadboard CSV도 업로드하세요');
+      
+      // Check if both are loaded
+      if(loadboardData.length > 0){
+        document.getElementById('loading').style.display = 'none';
+        buildKPI();
+        buildCharts();
+        initFilters();
+        renderProductList();
+      }
+    } catch(err){
+      showToast('❌ Socket CSV 형식 오류: ' + err.message);
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+function manualUploadLoadboard(event){
+  const file = event.target.files[0];
+  if(!file) return;
+  
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try {
+      const text = e.target.result;
+      const parsed = parseCSV(text);
+      
+      loadboardData = parsed.map(r=>({
+        Tester: r.Tester || '',
+        도킹유형: r['도킹유형'] || '',
+        보드번호: r['보드번호_SN'] || r['보드번호'] || '',
+        PKG_Type: r.PKG_Type || '',
+        body_Size: r.body_Size || '',
+        양산_FT: r['양산_FT'] || '',
+        보드제작처: r['보드제작처'] || '',
+        Socket제작처: r['Socket제작처'] || '',
+        제품명: r['제품명'] || '',
+        자작FT가능: r['자작FT가능'] || '',
+        Comment: r.Comment || ''
+      }));
+      
+      loadboardFiltered = [...loadboardData];
+      localStorage.setItem('lb_loadboard', JSON.stringify(loadboardData));
+      
+      showToast('✅ Loadboard CSV 업로드 완료 - Socket CSV도 업로드하세요');
+      
+      // Check if both are loaded
+      if(socketData.length > 0){
+        document.getElementById('loading').style.display = 'none';
+        buildKPI();
+        buildCharts();
+        initFilters();
+        renderProductList();
+      }
+    } catch(err){
+      showToast('❌ Loadboard CSV 형식 오류: ' + err.message);
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+// ══════════════════════════════════════════════════════════
+//  CSV DOWNLOAD HANDLERS
+// ══════════════════════════════════════════════════════════
+function downloadSocketCSV(){
+  const headers = ['SN','TESTER','PKG_TYPE','Body_Size','소켓수량','커버수량','위치','제작Engr','SOCKET_NO','Pogo_Pin','Comment'];
+  const data = socketFiltered.map(r=>({
+    SN: r.SN,
+    TESTER: r.TESTER,
+    PKG_TYPE: r.PKG_TYPE,
+    Body_Size: r.Body_Size,
+    '소켓수량': r.socket_qty,
+    '커버수량': r.cover_qty,
+    '위치': r.location,
+    '제작Engr': r.engineer,
+    SOCKET_NO: r.socket_no,
+    Pogo_Pin: r.pogo_pin,
+    Comment: r.comment
+  }));
+  
+  const csv = toCSV(data, headers);
+  const blob = new Blob([csv], {type: 'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `socket_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  showToast('✅ Socket CSV 다운로드 완료');
+}
+
+function downloadLoadboardCSV(){
+  const headers = ['Tester','도킹유형','보드번호_SN','PKG_Type','body_Size','양산_FT','보드제작처','Socket제작처','제품명','자작FT가능','Comment'];
+  const data = loadboardFiltered.map(r=>({
+    Tester: r.Tester,
+    '도킹유형': r.도킹유형,
+    '보드번호_SN': r.보드번호,
+    PKG_Type: r.PKG_Type,
+    body_Size: r.body_Size,
+    '양산_FT': r.양산_FT,
+    '보드제작처': r.보드제작처,
+    'Socket제작처': r.Socket제작처,
+    '제품명': r.제품명,
+    '자작FT가능': r.자작FT가능,
+    Comment: r.Comment
+  }));
+  
+  const csv = toCSV(data, headers);
+  const blob = new Blob([csv], {type: 'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `loadboard_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  showToast('✅ Loadboard CSV 다운로드 완료');
+}
+
+// ══════════════════════════════════════════════════════════
+//  RESET DATA
+// ══════════════════════════════════════════════════════════
+function resetSocketData(){
+  if(!confirm('로컬 스토리지의 Socket 데이터를 삭제하고 CSV 파일에서 다시 불러오시겠습니까?')) return;
+  localStorage.removeItem('lb_socket');
+  location.reload();
+}
+
+function resetLoadboardData(){
+  if(!confirm('로컬 스토리지의 Loadboard 데이터를 삭제하고 CSV 파일에서 다시 불러오시겠습니까?')) return;
+  localStorage.removeItem('lb_loadboard');
+  location.reload();
+}
 
 // ══════════════════════════════════════════════════════════
 //  CLOCK
@@ -301,34 +765,48 @@ function updateClock(){
 setInterval(updateClock,1000); updateClock();
 
 // ══════════════════════════════════════════════════════════
-//  TAB
+//  TAB SWITCHING
 // ══════════════════════════════════════════════════════════
 function switchTab(tab){
-  ['dashboard','socket','data'].forEach(t=>{
-    document.getElementById('content-'+t).style.display = t===tab?'block':'none';
+  // Check authentication for protected tabs
+  if((tab==='socket' || tab==='loadboard') && !isAuthenticated){
+    const password = prompt('🔒 이 페이지는 비밀번호가 필요합니다:\n\n비밀번호를 입력하세요:');
+    if(password !== 'abovtest'){
+      showToast('❌ 비밀번호가 올바르지 않습니다');
+      return;
+    }
+    isAuthenticated = true;
+    showToast('✅ 인증 성공');
+  }
+  
+  ['dashboard','socket','loadboard'].forEach(t=>{
+    const el = document.getElementById('content-'+t);
+    if(el) el.style.display = t===tab?'block':'none';
   });
   document.querySelectorAll('.tab').forEach((el,i)=>{
-    el.classList.toggle('active',['dashboard','socket','data'][i]===tab);
+    el.classList.toggle('active',['dashboard','socket','loadboard'][i]===tab);
   });
   if(tab==='socket') renderSocketTable();
-  if(tab==='data')   renderDataTable();
+  if(tab==='loadboard') renderLoadboardTable();
 }
 
 // ══════════════════════════════════════════════════════════
-//  KPI
+//  KPI CARDS
 // ══════════════════════════════════════════════════════════
 function buildKPI(){
   const totalSockets = socketData.reduce((a,r)=>a+(r.socket_qty||0),0);
-  const pkgTypes     = new Set(socketData.map(r=>r.PKG_TYPE.trim()).filter(Boolean)).size;
-  const testers      = new Set(socketData.map(r=>r.TESTER).filter(Boolean)).size;
-  const totalBoards  = dataData.length;
+  const pkgTypes = new Set(socketData.map(r=>r.PKG_TYPE.trim()).filter(Boolean)).size;
+  const testers = new Set(socketData.map(r=>r.TESTER).filter(Boolean)).size;
+  const totalBoards = loadboardData.length;
+  const totalProducts = new Set(loadboardData.map(r=>r.제품명.trim()).filter(Boolean)).size;
   const kpis = [
     {val:socketData.length,lbl:'총 소켓 항목',color:'var(--accent)'},
     {val:totalSockets,     lbl:'소켓 총 수량',color:'var(--accent2)'},
     {val:pkgTypes,         lbl:'PKG 유형 수',color:'var(--accent3)'},
     {val:testers,          lbl:'TESTER 수',  color:'var(--purple)'},
-    {val:totalBoards,      lbl:'Data 보드 수',color:'var(--cyan)'},
-    {val:new Set(dataData.map(r=>r.양산_FT).filter(Boolean)).size, lbl:'FT 유형 수', color:'var(--accent4)'},
+    {val:totalBoards,      lbl:'Loadboard 수',color:'var(--cyan)'},
+    {val:totalProducts,    lbl:'총 제품 수',  color:'var(--accent4)'},
+    {val:new Set(loadboardData.map(r=>r.양산_FT).filter(Boolean)).size, lbl:'FT 유형 수', color:'#ff9f40'},
   ];
   const row = document.getElementById('kpi-row');
   row.innerHTML = kpis.map(k=>`
@@ -379,32 +857,100 @@ function buildCharts(){
     options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{y:{ticks:{color:'#8892a4'},grid:{color:'#2e3347'}},x:{ticks:{color:'#8892a4'},grid:{color:'#2e3347'}}},responsive:true}
   });
 
-  // Docking type (data)
+  // Docking type (loadboard)
   destroyChart('ch-docking');
-  const dockFreq = freq(dataData.map(r=>r.도킹유형));
+  const dockFreq = freq(loadboardData.map(r=>r.도킹유형));
   charts['ch-docking'] = new Chart(document.getElementById('ch-docking'),{
     type:'doughnut',
     data:{labels:Object.keys(dockFreq),datasets:[{data:Object.values(dockFreq),backgroundColor:['#4f8ef7','#9b7cf8'],borderWidth:2,borderColor:'#0f1117'}]},
     options:{plugins:{legend:{labels:{color:'#e2e8f0',font:{size:12}}}},responsive:true}
   });
 
-  // FT (data)
+  // FT (loadboard)
   destroyChart('ch-ft');
-  const ftFreq = freq(dataData.map(r=>r.양산_FT).filter(Boolean));
+  const ftFreq = freq(loadboardData.map(r=>r.양산_FT).filter(Boolean));
   charts['ch-ft'] = new Chart(document.getElementById('ch-ft'),{
     type:'bar',
     data:{labels:Object.keys(ftFreq),datasets:[{data:Object.values(ftFreq),backgroundColor:['#3ecf8e','#f7c94f','#e05c73'],borderRadius:4}]},
     options:{plugins:{legend:{display:false}},scales:{y:{ticks:{color:'#8892a4'},grid:{color:'#2e3347'}},x:{ticks:{color:'#8892a4'},grid:{color:'#2e3347'}}},responsive:true}
   });
 
-  // 보드 제작처 (data)
+  // 보드 제작처 (loadboard)
   destroyChart('ch-maker');
-  const mkFreq = freq(dataData.map(r=>r.보드제작처).filter(Boolean));
+  const mkFreq = freq(loadboardData.map(r=>r.보드제작처).filter(Boolean));
   charts['ch-maker'] = new Chart(document.getElementById('ch-maker'),{
     type:'bar',
     data:{labels:Object.keys(mkFreq),datasets:[{data:Object.values(mkFreq),backgroundColor:['#29d9d9','#ff9f40','#4f8ef7'],borderRadius:4}]},
     options:{plugins:{legend:{display:false}},scales:{y:{ticks:{color:'#8892a4'},grid:{color:'#2e3347'}},x:{ticks:{color:'#8892a4'},grid:{color:'#2e3347'}}},responsive:true}
   });
+}
+
+// ══════════════════════════════════════════════════════════
+//  PRODUCT LIST (제품명 기준 보드 정보)
+// ══════════════════════════════════════════════════════════
+let productListFiltered = [];
+
+function renderProductList(searchTerm = ''){
+  // Group by product name
+  const productMap = {};
+  loadboardData.forEach(r=>{
+    const name = r.제품명.trim();
+    if(!name) return;
+    if(searchTerm && !name.toLowerCase().includes(searchTerm.toLowerCase())) return;
+    
+    if(!productMap[name]){
+      productMap[name] = {
+        name: name,
+        boards: []
+      };
+    }
+    productMap[name].boards.push(r);
+  });
+  
+  productListFiltered = Object.values(productMap).sort((a,b)=>a.name.localeCompare(b.name));
+  
+  const container = document.getElementById('product-list');
+  if(productListFiltered.length === 0){
+    container.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--muted);padding:40px">검색 결과가 없습니다.</div>';
+    return;
+  }
+  
+  container.innerHTML = productListFiltered.map(p=>{
+    const board = p.boards[0];
+    const count = p.boards.length;
+    return `
+      <div class="product-card" onclick="showProductDetail('${esc(p.name)}')">
+        <div class="product-name">${esc(p.name)}</div>
+        <div class="product-info">
+          <span>📦 보드 수: ${count}개</span>
+          <span>🔧 Tester: ${esc(board.Tester)}</span>
+          <span>📐 PKG: ${esc(board.PKG_Type)}</span>
+          <span>📏 Size: ${esc(board.body_Size)}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function searchProducts(){
+  const searchTerm = document.getElementById('product-search').value;
+  renderProductList(searchTerm);
+}
+
+function clearProductSearch(){
+  document.getElementById('product-search').value = '';
+  renderProductList();
+}
+
+function showProductDetail(productName){
+  const boards = loadboardData.filter(r=>r.제품명===productName);
+  
+  // Switch to loadboard tab with filter
+  switchTab('loadboard');
+  document.getElementById('lf-search').value = productName;
+  applyLoadboardFilter();
+  
+  showToast(`📦 ${productName} 보드 목록 (${boards.length}개)`);
 }
 
 // ══════════════════════════════════════════════════════════
@@ -414,6 +960,9 @@ function initFilters(){
   // SOCKET filters
   const sTesterSel = document.getElementById('sf-tester');
   const sSeriesSel = document.getElementById('sf-series');
+  sTesterSel.innerHTML = '<option value="">전체</option>';
+  sSeriesSel.innerHTML = '<option value="">전체</option>';
+  
   [...new Set(socketData.map(r=>r.TESTER).filter(Boolean))].forEach(v=>{
     sTesterSel.innerHTML+=`<option>${v}</option>`;
   });
@@ -422,15 +971,21 @@ function initFilters(){
   }).filter(Boolean))];
   series.forEach(v=>{ sSeriesSel.innerHTML+=`<option>${v}</option>`; });
 
-  // DATA filters
-  const dTesterSel  = document.getElementById('df-tester');
-  const dDockSel    = document.getElementById('df-docking');
-  const dFtSel      = document.getElementById('df-ft');
-  const dMakerSel   = document.getElementById('df-maker');
-  [...new Set(dataData.map(r=>r.Tester).filter(Boolean))].forEach(v=>{dTesterSel.innerHTML+=`<option>${v}</option>`;});
-  [...new Set(dataData.map(r=>r.도킹유형).filter(Boolean))].forEach(v=>{dDockSel.innerHTML+=`<option>${v}</option>`;});
-  [...new Set(dataData.map(r=>r.양산_FT).filter(Boolean))].forEach(v=>{dFtSel.innerHTML+=`<option>${v}</option>`;});
-  [...new Set(dataData.map(r=>r.보드제작처).filter(Boolean))].forEach(v=>{dMakerSel.innerHTML+=`<option>${v}</option>`;});
+  // LOADBOARD filters
+  const lTesterSel = document.getElementById('lf-tester');
+  const lDockSel = document.getElementById('lf-docking');
+  const lFtSel = document.getElementById('lf-ft');
+  const lMakerSel = document.getElementById('lf-maker');
+  
+  lTesterSel.innerHTML = '<option value="">전체</option>';
+  lDockSel.innerHTML = '<option value="">전체</option>';
+  lFtSel.innerHTML = '<option value="">전체</option>';
+  lMakerSel.innerHTML = '<option value="">전체</option>';
+  
+  [...new Set(loadboardData.map(r=>r.Tester).filter(Boolean))].forEach(v=>{lTesterSel.innerHTML+=`<option>${v}</option>`;});
+  [...new Set(loadboardData.map(r=>r.도킹유형).filter(Boolean))].forEach(v=>{lDockSel.innerHTML+=`<option>${v}</option>`;});
+  [...new Set(loadboardData.map(r=>r.양산_FT).filter(Boolean))].forEach(v=>{lFtSel.innerHTML+=`<option>${v}</option>`;});
+  [...new Set(loadboardData.map(r=>r.보드제작처).filter(Boolean))].forEach(v=>{lMakerSel.innerHTML+=`<option>${v}</option>`;});
 }
 
 // ══════════════════════════════════════════════════════════
@@ -450,15 +1005,15 @@ function renderSocketTable(data){
     return `<tr${r._new?' class="row-new"':''}>
       <td>${r.SN}</td>
       <td>${testerBadge(r.TESTER)}</td>
-      <td><input value="${esc(r.PKG_TYPE)}" onchange="socketData[${qi}].PKG_TYPE=this.value" style="min-width:90px"></td>
-      <td><input value="${esc(r.Body_Size)}" onchange="socketData[${qi}].Body_Size=this.value" style="min-width:90px"></td>
-      <td><input type="number" value="${r.socket_qty}" onchange="socketData[${qi}].socket_qty=+this.value" style="width:60px"></td>
-      <td><input type="number" value="${r.cover_qty}"  onchange="socketData[${qi}].cover_qty=+this.value"  style="width:60px"></td>
-      <td><input value="${esc(r.location)}" onchange="socketData[${qi}].location=this.value" style="min-width:70px"></td>
-      <td><input value="${esc(r.engineer)}" onchange="socketData[${qi}].engineer=this.value" style="min-width:70px"></td>
-      <td><input value="${esc(r.socket_no)}" onchange="socketData[${qi}].socket_no=this.value" style="min-width:120px"></td>
-      <td><input value="${esc(r.pogo_pin)}" onchange="socketData[${qi}].pogo_pin=this.value" style="min-width:100px"></td>
-      <td><input value="${esc(r.comment)}"  onchange="socketData[${qi}].comment=this.value"  style="min-width:100px"></td>
+      <td><input value="${esc(r.PKG_TYPE)}" onchange="socketData[${qi}].PKG_TYPE=this.value;saveData()" style="min-width:90px"></td>
+      <td><input value="${esc(r.Body_Size)}" onchange="socketData[${qi}].Body_Size=this.value;saveData()" style="min-width:90px"></td>
+      <td><input type="number" value="${r.socket_qty}" onchange="socketData[${qi}].socket_qty=+this.value;saveData()" style="width:60px"></td>
+      <td><input type="number" value="${r.cover_qty}"  onchange="socketData[${qi}].cover_qty=+this.value;saveData()"  style="width:60px"></td>
+      <td><input value="${esc(r.location)}" onchange="socketData[${qi}].location=this.value;saveData()" style="min-width:70px"></td>
+      <td><input value="${esc(r.engineer)}" onchange="socketData[${qi}].engineer=this.value;saveData()" style="min-width:70px"></td>
+      <td><input value="${esc(r.socket_no)}" onchange="socketData[${qi}].socket_no=this.value;saveData()" style="min-width:120px"></td>
+      <td><input value="${esc(r.pogo_pin)}" onchange="socketData[${qi}].pogo_pin=this.value;saveData()" style="min-width:100px"></td>
+      <td><input value="${esc(r.comment)}"  onchange="socketData[${qi}].comment=this.value;saveData()"  style="min-width:100px"></td>
       <td>
         <button class="btn-danger" style="padding:3px 8px;font-size:11px" onclick="deleteSocket(${qi})">🗑</button>
       </td>
@@ -482,6 +1037,7 @@ function applySocketFilter(){
   });
   renderSocketTable(socketFiltered);
 }
+
 function clearSocketFilter(){
   document.getElementById('sf-tester').value='';
   document.getElementById('sf-series').value='';
@@ -494,84 +1050,89 @@ function deleteSocket(idx){
   if(!confirm('삭제하시겠습니까?')) return;
   socketData.splice(idx,1);
   socketFiltered=[...socketData];
+  saveData();
   renderSocketTable();
   buildKPI(); buildCharts();
 }
 
 // ══════════════════════════════════════════════════════════
-//  DATA TABLE
+//  LOADBOARD TABLE
 // ══════════════════════════════════════════════════════════
 function dockBadge(d){
   if(!d) return '';
   return `<span class="badge ${d.includes('Flat')?'badge-flat':'badge-direct'}">${d}</span>`;
 }
 
-function renderDataTable(data){
-  data = data||dataFiltered;
-  const tbody = document.getElementById('data-tbody');
+function renderLoadboardTable(data){
+  data = data||loadboardFiltered;
+  const tbody = document.getElementById('loadboard-tbody');
   tbody.innerHTML = data.map((r,i)=>{
-    const qi = dataData.indexOf(r);
+    const qi = loadboardData.indexOf(r);
     return `<tr${r._new?' class="row-new"':''}>
       <td>${testerBadge(r.Tester)}</td>
       <td>${dockBadge(r.도킹유형)}</td>
-      <td><input value="${esc(r.보드번호_SN)}" onchange="dataData[${qi}].보드번호_SN=this.value" style="min-width:90px"></td>
-      <td><input value="${esc(r.PKG_Type)}"   onchange="dataData[${qi}].PKG_Type=this.value"   style="min-width:80px"></td>
-      <td><input value="${esc(r.body_Size)}"   onchange="dataData[${qi}].body_Size=this.value"   style="min-width:80px"></td>
-      <td><input value="${esc(r.양산_FT)}"    onchange="dataData[${qi}].양산_FT=this.value"    style="min-width:70px"></td>
-      <td><input value="${esc(r.보드제작처)}" onchange="dataData[${qi}].보드제작처=this.value" style="min-width:70px"></td>
-      <td><input value="${esc(r.Socket제작처)}" onchange="dataData[${qi}].Socket제작처=this.value" style="min-width:70px"></td>
-      <td><input value="${esc(r.제품명)}"     onchange="dataData[${qi}].제품명=this.value"     style="min-width:120px"></td>
-      <td><input value="${esc(r.자작FT가능)}" onchange="dataData[${qi}].자작FT가능=this.value" style="width:50px;text-align:center"></td>
-      <td><input value="${esc(r.Comment)}"    onchange="dataData[${qi}].Comment=this.value"    style="min-width:100px"></td>
+      <td><input value="${esc(r.보드번호)}" onchange="loadboardData[${qi}].보드번호=this.value;saveData()" style="min-width:90px"></td>
+      <td><input value="${esc(r.PKG_Type)}"   onchange="loadboardData[${qi}].PKG_Type=this.value;saveData()"   style="min-width:80px"></td>
+      <td><input value="${esc(r.body_Size)}"   onchange="loadboardData[${qi}].body_Size=this.value;saveData()"   style="min-width:80px"></td>
+      <td><input value="${esc(r.양산_FT)}"    onchange="loadboardData[${qi}].양산_FT=this.value;saveData()"    style="min-width:70px"></td>
+      <td><input value="${esc(r.보드제작처)}" onchange="loadboardData[${qi}].보드제작처=this.value;saveData()" style="min-width:70px"></td>
+      <td><input value="${esc(r.Socket제작처)}" onchange="loadboardData[${qi}].Socket제작처=this.value;saveData()" style="min-width:70px"></td>
+      <td><input value="${esc(r.제품명)}"     onchange="loadboardData[${qi}].제품명=this.value;saveData()"     style="min-width:120px"></td>
+      <td><input value="${esc(r.자작FT가능)}" onchange="loadboardData[${qi}].자작FT가능=this.value;saveData()" style="width:50px;text-align:center"></td>
+      <td><input value="${esc(r.Comment)}"    onchange="loadboardData[${qi}].Comment=this.value;saveData()"    style="min-width:100px"></td>
       <td>
-        <button class="btn-danger" style="padding:3px 8px;font-size:11px" onclick="deleteData(${qi})">🗑</button>
+        <button class="btn-danger" style="padding:3px 8px;font-size:11px" onclick="deleteLoadboard(${qi})">🗑</button>
       </td>
     </tr>`;
   }).join('');
-  document.getElementById('data-count').textContent = `총 ${data.length}건 표시 / 전체 ${dataData.length}건`;
+  document.getElementById('loadboard-count').textContent = `총 ${data.length}건 표시 / 전체 ${loadboardData.length}건`;
 }
 
-function applyDataFilter(){
-  const tester  = document.getElementById('df-tester').value;
-  const docking = document.getElementById('df-docking').value;
-  const ft      = document.getElementById('df-ft').value;
-  const maker   = document.getElementById('df-maker').value;
-  const search  = document.getElementById('df-search').value.toLowerCase();
-  dataFiltered = dataData.filter(r=>{
+function applyLoadboardFilter(){
+  const tester  = document.getElementById('lf-tester').value;
+  const docking = document.getElementById('lf-docking').value;
+  const ft      = document.getElementById('lf-ft').value;
+  const maker   = document.getElementById('lf-maker').value;
+  const search  = document.getElementById('lf-search').value.toLowerCase();
+  loadboardFiltered = loadboardData.filter(r=>{
     if(tester  && r.Tester!==tester)      return false;
     if(docking && r.도킹유형!==docking)    return false;
     if(ft      && r.양산_FT!==ft)         return false;
     if(maker   && r.보드제작처!==maker)    return false;
     if(search){
-      const hay=[r.제품명,r.PKG_Type,r.보드번호_SN,r.body_Size,r.Comment].join(' ').toLowerCase();
+      const hay=[r.제품명,r.PKG_Type,r.보드번호,r.body_Size,r.Comment].join(' ').toLowerCase();
       if(!hay.includes(search)) return false;
     }
     return true;
   });
-  renderDataTable(dataFiltered);
+  renderLoadboardTable(loadboardFiltered);
 }
-function clearDataFilter(){
-  document.getElementById('df-tester').value='';
-  document.getElementById('df-docking').value='';
-  document.getElementById('df-ft').value='';
-  document.getElementById('df-maker').value='';
-  document.getElementById('df-search').value='';
-  dataFiltered=[...dataData];
-  renderDataTable();
+
+function clearLoadboardFilter(){
+  document.getElementById('lf-tester').value='';
+  document.getElementById('lf-docking').value='';
+  document.getElementById('lf-ft').value='';
+  document.getElementById('lf-maker').value='';
+  document.getElementById('lf-search').value='';
+  loadboardFiltered=[...loadboardData];
+  renderLoadboardTable();
 }
-function deleteData(idx){
+
+function deleteLoadboard(idx){
   if(!confirm('삭제하시겠습니까?')) return;
-  dataData.splice(idx,1);
-  dataFiltered=[...dataData];
-  renderDataTable();
+  loadboardData.splice(idx,1);
+  loadboardFiltered=[...loadboardData];
+  saveData();
+  renderLoadboardTable();
   buildKPI(); buildCharts();
+  renderProductList();
 }
 
 // ══════════════════════════════════════════════════════════
-//  SORT
+//  SORT TABLE
 // ══════════════════════════════════════════════════════════
 const SOCKET_KEYS=['SN','TESTER','PKG_TYPE','Body_Size','socket_qty','cover_qty'];
-const DATA_KEYS  =['Tester','도킹유형','보드번호_SN','PKG_Type','body_Size','양산_FT','보드제작처','Socket제작처','제품명'];
+const LOADBOARD_KEYS=['Tester','도킹유형','보드번호','PKG_Type','body_Size','양산_FT','보드제작처','Socket제작처','제품명'];
 
 function sortTable(type, col){
   if(type==='socket'){
@@ -583,13 +1144,13 @@ function sortTable(type, col){
     });
     renderSocketTable(socketFiltered);
   } else {
-    if(dataSortCol===col) dataSortDir*=-1; else{ dataSortCol=col; dataSortDir=1; }
-    const key=DATA_KEYS[col];
-    dataFiltered.sort((a,b)=>{
+    if(loadboardSortCol===col) loadboardSortDir*=-1; else{ loadboardSortCol=col; loadboardSortDir=1; }
+    const key=LOADBOARD_KEYS[col];
+    loadboardFiltered.sort((a,b)=>{
       const av=a[key], bv=b[key];
-      return (av>bv?1:av<bv?-1:0)*dataSortDir;
+      return (av>bv?1:av<bv?-1:0)*loadboardSortDir;
     });
-    renderDataTable(dataFiltered);
+    renderLoadboardTable(loadboardFiltered);
   }
 }
 
@@ -603,25 +1164,9 @@ function openAddSocketModal(){
     .forEach(id=>{ const el=document.getElementById(id); el.tagName==='SELECT'?(el.selectedIndex=0):(el.value=id.includes('qty')?'0':''); });
   document.getElementById('socket-modal').classList.add('open');
 }
-function openEditSocketModal(idx){
-  socketEditIdx=idx;
-  const r=socketData[idx];
-  document.getElementById('socket-modal-title').textContent='SOCKET 데이터 수정';
-  document.getElementById('sm-tester').value=r.TESTER;
-  document.getElementById('sm-pkg').value=r.PKG_TYPE;
-  document.getElementById('sm-body').value=r.Body_Size;
-  document.getElementById('sm-sqty').value=r.socket_qty;
-  document.getElementById('sm-cqty').value=r.cover_qty;
-  document.getElementById('sm-loc').value=r.location;
-  document.getElementById('sm-engr').value=r.engineer;
-  document.getElementById('sm-sno').value=r.socket_no;
-  document.getElementById('sm-pogo').value=r.pogo_pin;
-  document.getElementById('sm-comment').value=r.comment;
-  document.getElementById('socket-modal').classList.add('open');
-}
+
 function saveSocketModal(){
   const row={
-    group:'',
     SN: socketEditIdx===null ? String(socketData.length+1) : socketData[socketEditIdx].SN,
     TESTER:    document.getElementById('sm-tester').value,
     PKG_TYPE:  document.getElementById('sm-pkg').value,
@@ -639,46 +1184,46 @@ function saveSocketModal(){
   else { socketData[socketEditIdx]=row; }
   socketFiltered=[...socketData];
   closeModal('socket-modal');
-  renderSocketTable(); buildKPI(); buildCharts();
-  showToast('SOCKET 데이터가 저장되었습니다');
+  saveData();
+  renderSocketTable(); buildKPI(); buildCharts(); initFilters();
+  showToast('✅ SOCKET 데이터가 저장되었습니다');
 }
 
 // ══════════════════════════════════════════════════════════
-//  MODAL – DATA
+//  MODAL – LOADBOARD
 // ══════════════════════════════════════════════════════════
-function openAddDataModal(){
-  dataEditIdx=null;
-  document.getElementById('data-modal-title').textContent='Data 데이터 추가';
-  ['dm-tester','dm-docking','dm-ft','dm-maker','dm-socket-maker','dm-self']
+function openAddLoadboardModal(){
+  loadboardEditIdx=null;
+  document.getElementById('loadboard-modal-title').textContent='Loadboard 데이터 추가';
+  ['lm-tester','lm-docking','lm-ft','lm-maker','lm-socket-maker','lm-self']
     .forEach(id=>{ document.getElementById(id).selectedIndex=0; });
-  ['dm-sn','dm-pkg','dm-body','dm-product','dm-pcbver','dm-comment']
+  ['lm-sn','lm-pkg','lm-body','lm-product','lm-comment']
     .forEach(id=>{ document.getElementById(id).value=''; });
-  document.getElementById('data-modal').classList.add('open');
+  document.getElementById('loadboard-modal').classList.add('open');
 }
-function saveDataModal(){
+
+function saveLoadboardModal(){
   const row={
-    Tester:      document.getElementById('dm-tester').value,
-    도킹유형:     document.getElementById('dm-docking').value,
-    보드번호_SN:  document.getElementById('dm-sn').value,
-    PKG_Type:    document.getElementById('dm-pkg').value,
-    body_Size:   document.getElementById('dm-body').value,
-    양산_FT:     document.getElementById('dm-ft').value,
-    보드제작처:   document.getElementById('dm-maker').value,
-    Socket제작처: document.getElementById('dm-socket-maker').value,
-    제품명:       document.getElementById('dm-product').value,
-    자작FT가능:   document.getElementById('dm-self').value,
-    사용DUT:'', 미사용보드:'',
-    Comment:     document.getElementById('dm-comment').value,
-    PCB_Ver:     document.getElementById('dm-pcbver').value,
-    Engr:'',
-    _new: dataEditIdx===null
+    Tester:      document.getElementById('lm-tester').value,
+    도킹유형:     document.getElementById('lm-docking').value,
+    보드번호:  document.getElementById('lm-sn').value,
+    PKG_Type:    document.getElementById('lm-pkg').value,
+    body_Size:   document.getElementById('lm-body').value,
+    양산_FT:     document.getElementById('lm-ft').value,
+    보드제작처:   document.getElementById('lm-maker').value,
+    Socket제작처: document.getElementById('lm-socket-maker').value,
+    제품명:       document.getElementById('lm-product').value,
+    자작FT가능:   document.getElementById('lm-self').value,
+    Comment:     document.getElementById('lm-comment').value,
+    _new: loadboardEditIdx===null
   };
-  if(dataEditIdx===null){ dataData.push(row); }
-  else { dataData[dataEditIdx]=row; }
-  dataFiltered=[...dataData];
-  closeModal('data-modal');
-  renderDataTable(); buildKPI(); buildCharts();
-  showToast('Data가 저장되었습니다');
+  if(loadboardEditIdx===null){ loadboardData.push(row); }
+  else { loadboardData[loadboardEditIdx]=row; }
+  loadboardFiltered=[...loadboardData];
+  closeModal('loadboard-modal');
+  saveData();
+  renderLoadboardTable(); buildKPI(); buildCharts(); initFilters(); renderProductList();
+  showToast('✅ Loadboard 데이터가 저장되었습니다');
 }
 
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
@@ -689,36 +1234,16 @@ document.querySelectorAll('.modal-overlay').forEach(el=>{
 });
 
 // ══════════════════════════════════════════════════════════
-//  PERSIST
+//  DATA PERSISTENCE
 // ══════════════════════════════════════════════════════════
-function saveToLocalStorage(){
+function saveData(){
   localStorage.setItem('lb_socket', JSON.stringify(socketData));
-  localStorage.setItem('lb_data',   JSON.stringify(dataData));
-  showToast('💾 로컬 스토리지에 저장되었습니다');
+  localStorage.setItem('lb_loadboard', JSON.stringify(loadboardData));
+  showToast('💾 데이터가 로컬 스토리지에 저장되었습니다');
 }
 
 // ══════════════════════════════════════════════════════════
-//  CSV EXPORT
-// ══════════════════════════════════════════════════════════
-function exportCSV(type){
-  let rows, headers;
-  if(type==='socket'){
-    headers=['SN','TESTER','PKG_TYPE','Body_Size','소켓수량','커버수량','위치','제작Engr','SOCKET_NO','Pogo_Pin','Comment'];
-    rows=socketFiltered.map(r=>[r.SN,r.TESTER,r.PKG_TYPE,r.Body_Size,r.socket_qty,r.cover_qty,r.location,r.engineer,r.socket_no,r.pogo_pin,r.comment]);
-  } else {
-    headers=['Tester','도킹유형','보드번호','PKG_Type','body_Size','양산_FT','보드제작처','Socket제작처','제품명','자작FT가능','Comment'];
-    rows=dataFiltered.map(r=>[r.Tester,r.도킹유형,r.보드번호_SN,r.PKG_Type,r.body_Size,r.양산_FT,r.보드제작처,r.Socket제작처,r.제품명,r.자작FT가능,r.Comment]);
-  }
-  const csv='\uFEFF'+[headers,...rows].map(r=>r.map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(',')).join('\n');
-  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download=`LB_Socket_${type}_${new Date().toISOString().slice(0,10)}.csv`;
-  a.click();
-}
-
-// ══════════════════════════════════════════════════════════
-//  TOAST
+//  TOAST NOTIFICATION
 // ══════════════════════════════════════════════════════════
 let toastTimer;
 function showToast(msg){
@@ -729,18 +1254,14 @@ function showToast(msg){
 }
 
 // ══════════════════════════════════════════════════════════
-//  UTILS
+//  UTILITY FUNCTIONS
 // ══════════════════════════════════════════════════════════
 function esc(v){ return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 // ══════════════════════════════════════════════════════════
-//  INIT
+//  INITIALIZE APPLICATION
 // ══════════════════════════════════════════════════════════
-buildKPI();
-buildCharts();
-initFilters();
-socketFiltered=[...socketData];
-dataFiltered=[...dataData];
+initApp();
 </script>
 </body>
 </html>

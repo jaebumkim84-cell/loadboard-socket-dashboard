@@ -8,25 +8,11 @@
 <style>
 /* ══════════════ BASE ══════════════ */
 *{box-sizing:border-box;margin:0;padding:0}
-:root {
-  /* 배경 및 레이아웃 - 밝고 깨끗한 톤 */
-  --bg: #f8fafc;        /* 전체 배경: 아주 연한 그레이 */
-  --card: #ffffff;      /* 카드/컨텐츠: 순백색 */
-  --card2: #f1f5f9;     /* 보조 배경/입력창: 연한 블루그레이 */
-  --border: #e2e8f0;    /* 경계선: 눈에 띄지 않는 연한 선 */
-  
-  /* 텍스트 - 가독성 중심 */
-  --text: #1e293b;      /* 메인 글꼴: 짙은 남색 계열 (검정보다 부드러움) */
-  --muted: #64748b;     /* 보조 글꼴: 중간 회색 */
-  --tbl-head: #f8fafc;  /* 테이블 헤더: 배경보다 약간 진한 톤 */
-
-  /* 포인트 컬러 - 흰 배경에서 잘 보이도록 채도/명도 조절 */
-  --accent: #2563eb;    /* 파랑 (Primary) */
-  --accent2: #16a34a;   /* 초록 (Success) */
-  --accent3: #d97706;   /* 노랑/주황 (Warning) */
-  --accent4: #dc2626;   /* 빨강 (Danger) */
-  --cyan: #0891b2;
-  --purple: #7c3aed;
+:root{
+  --bg:#0f1117;--card:#1a1d27;--card2:#232736;--border:#2e3347;
+  --accent:#4f8ef7;--accent2:#3ecf8e;--accent3:#f7c94f;--accent4:#e05c73;
+  --text:#e2e8f0;--muted:#8892a4;--tbl-head:#1e2538;
+  --cyan:#29d9d9;--purple:#9b7cf8;
 }
 body{background:var(--bg);color:var(--text);font-family:'Segoe UI',Arial,sans-serif;font-size:13px;min-height:100vh}
 a{color:var(--accent)}
@@ -77,13 +63,11 @@ button:hover{opacity:.85}
 .filter-bar label{font-size:11px;color:var(--muted)}
 .filter-bar select,.filter-bar input[type=text]{min-width:120px}
 .btn-primary{background:var(--accent);color:#fff}
-/*.btn-success{background:var(--accent2);color:#0f1117;font-weight:700}*/
-/* 버튼 글자색 최적화 */
-.btn-success, .btn-warning, .btn-info { color: #ffffff !important; font-weight: 600; }
-/*.btn-warning{background:var(--accent3);color:#0f1117;font-weight:700}*/
+.btn-success{background:var(--accent2);color:#0f1117;font-weight:700}
+.btn-warning{background:var(--accent3);color:#0f1117;font-weight:700}
 .btn-danger{background:var(--accent4);color:#fff}
 .btn-muted{background:var(--card2);color:var(--text)}
-/*.btn-info{background:var(--cyan);color:#0f1117;font-weight:700}*/
+.btn-info{background:var(--cyan);color:#0f1117;font-weight:700}
 
 /* ══════════════ TABLE ══════════════ */
 .tbl-wrap{overflow:auto;border-radius:10px;border:1px solid var(--border)}
@@ -97,25 +81,15 @@ tbody td{padding:8px 10px;vertical-align:middle}
 tbody td input,tbody td select{width:100%;background:transparent;border:1px solid transparent;padding:3px 6px;border-radius:4px}
 tbody td input:focus,tbody td select:focus{background:var(--card2);border-color:var(--accent)}
 .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700}
-/*
 .badge-3380d{background:#1a3a6b;color:#7ab3ff}
 .badge-t3347a{background:#1a4a3a;color:#3ecf8e}
 .badge-3360d{background:#3a2a1a;color:#f7c94f}
 .badge-flat{background:#222;color:#aaa}
 .badge-direct{background:#2a1a3a;color:#9b7cf8}
-*/
-/* 배지(Badge) 스타일 - 파스텔톤으로 변경 (라이트 모드의 정석) */
-.badge-3380d { background: #dbeafe; color: #1e40af; } /* Blue */
-.badge-t3347a { background: #dcfce7; color: #15803d; } /* Green */
-.badge-3360d { background: #fef3c7; color: #a16207; } /* Yellow */
-.badge-flat { background: #f1f5f9; color: #475569; }   /* Gray */
-.badge-direct { background: #f3e8ff; color: #7e22ce; } /* Purple */
-/*.row-new{background:#0d2a1a !important}*/
-/* 새로운 행 강조색 */
-.row-new { background: #f0fdf4 !important; } /* 아주 연한 초록색 */
+.row-new{background:#0d2a1a !important}
 
 /* ══════════════ MODAL ══════════════ */
-.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:100;align-items:center;justify-content:center}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center}
 .modal-overlay.open{display:flex}
 .modal{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;min-width:480px;max-width:680px;width:90%;max-height:80vh;overflow:auto}
 .modal h2{font-size:15px;margin-bottom:16px;font-weight:700}
@@ -127,7 +101,7 @@ tbody td input:focus,tbody td select:focus{background:var(--card2);border-color:
 .modal .form-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
 
 /* ══════════════ TOAST ══════════════ */
-#toast{position:fixed;bottom:24px;right:24px;background:#ffffff;border:1px solid var(--accent2);color:var(--accent2);border-radius:8px;padding:10px 18px;font-size:13px;z-index:200;opacity:0;transition:opacity .3s;pointer-events:none}
+#toast{position:fixed;bottom:24px;right:24px;background:#232736;border:1px solid var(--accent2);color:var(--accent2);border-radius:8px;padding:10px 18px;font-size:13px;z-index:200;opacity:0;transition:opacity .3s;pointer-events:none}
 #toast.show{opacity:1}
 
 /* ══════════════ FILE UPLOAD ══════════════ */
@@ -136,7 +110,7 @@ tbody td input:focus,tbody td select:focus{background:var(--card2);border-color:
 .file-upload label{cursor:pointer}
 
 /* ══════════════ LOADING ══════════════ */
-.loading{position:fixed;inset:0;background:rgba(255, 255, 255, 0.9);display:flex;align-items:center;justify-content:center;z-index:300;font-size:18px;color:var(--accent);flex-direction:column;gap:20px}
+.loading{position:fixed;inset:0;background:rgba(15,17,23,0.95);display:flex;align-items:center;justify-content:center;z-index:300;font-size:18px;color:var(--accent);flex-direction:column;gap:20px}
 .loading-spinner{width:50px;height:50px;border:4px solid var(--border);border-top:4px solid var(--accent);border-radius:50%;animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 </style>

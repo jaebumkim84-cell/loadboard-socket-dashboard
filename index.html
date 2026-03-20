@@ -794,18 +794,18 @@ function switchTab(tab){
 //  KPI CARDS
 // ══════════════════════════════════════════════════════════
 function buildKPI(){
+  const totalProducts = new Set(loadboardData.map(r=>r.제품명.trim()).filter(Boolean)).size;
   const totalSockets = socketData.reduce((a,r)=>a+(r.socket_qty||0),0);
   const pkgTypes = new Set(socketData.map(r=>r.PKG_TYPE.trim()).filter(Boolean)).size;
   const testers = new Set(socketData.map(r=>r.TESTER).filter(Boolean)).size;
   const totalBoards = loadboardData.length;
-  const totalProducts = new Set(loadboardData.map(r=>r.제품명.trim()).filter(Boolean)).size;
   const kpis = [
+    {val:totalProducts,    lbl:'총 제품 수',  color:'var(--accent4)'},
     {val:socketData.length,lbl:'총 소켓 항목',color:'var(--accent)'},
     {val:totalSockets,     lbl:'소켓 총 수량',color:'var(--accent2)'},
     {val:pkgTypes,         lbl:'PKG 유형 수',color:'var(--accent3)'},
     {val:testers,          lbl:'TESTER 수',  color:'var(--purple)'},
     {val:totalBoards,      lbl:'Loadboard 수',color:'var(--cyan)'},
-    {val:totalProducts,    lbl:'총 제품 수',  color:'var(--accent4)'},
     {val:new Set(loadboardData.map(r=>r.양산_FT).filter(Boolean)).size, lbl:'FT 유형 수', color:'#ff9f40'},
   ];
   const row = document.getElementById('kpi-row');

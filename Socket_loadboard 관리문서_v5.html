@@ -794,11 +794,11 @@ function switchTab(tab){
 //  KPI CARDS
 // ══════════════════════════════════════════════════════════
 function buildKPI(){
+  const totalProducts = new Set(loadboardData.map(r=>r.제품명.trim()).filter(Boolean)).size;
   const totalSockets = socketData.reduce((a,r)=>a+(r.socket_qty||0),0);
   const pkgTypes = new Set(socketData.map(r=>r.PKG_TYPE.trim()).filter(Boolean)).size;
   const testers = new Set(socketData.map(r=>r.TESTER).filter(Boolean)).size;
   const totalBoards = loadboardData.length;
-  const totalProducts = new Set(loadboardData.map(r=>r.제품명.trim()).filter(Boolean)).size;
   const kpis = [
     {val:totalProducts,    lbl:'총 제품 수',  color:'var(--accent4)'},
     {val:socketData.length,lbl:'총 소켓 항목',color:'var(--accent)'},
